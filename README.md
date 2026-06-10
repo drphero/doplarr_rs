@@ -43,7 +43,7 @@ If you're migrating from the Clojure version of Doplarr:
 | **Discord UI** | V1 Components | V2 Components (richer layouts) |
 | **Backend Flexibility** | One instance per backend type | Multiple configurations per backend (e.g., `movie` + `movie_4k`) |
 | **Configuration** | EDN file or env vars | TOML with validation & helpful errors |
-| **Configuration Options** | Basic settings | More robust options (series type: Standard/Anime/Daily, monitor types, minimum availability, etc.) |
+| **Configuration Options** | Basic settings | More robust options (monitor type restrictions, minimum availability, anime auto-detection, specials control, etc.) |
 | **Logging** | Basic logging | Structured logging with granular levels |
 | **Runtime** | Requires Java 11+ | Native binary |
 | **Resource Usage** | JVM overhead | Native binary (lightweight) |
@@ -171,7 +171,7 @@ api_key = "your_radarr_api_key"
 quality_profile = "HD-1080p"
 rootfolder = "/movies"
 monitor_type = "movieOnly"           # movieOnly, movieAndCollection, none
-minimum_availability = "announced"   # announced, inCinemas, released
+minimum_availability = "announced"   # tba, announced, inCinemas, released
 
 # 4K movie requests (same or different Radarr instance)
 [[backends]]
@@ -217,6 +217,8 @@ rootfolder = "/anime"
 - **Quality profiles**: Use the exact name as shown in Sonarr/Radarr settings
 - **Root folders**: Must be a path that exists in your *arr configuration
 - **Monitor types for Sonarr**: The `allowed_monitor_types` setting restricts user choices, preventing selections like "all" which might download too much
+- **Series type is never asked**: New series use the configured `series_type` if set; otherwise anime is auto-detected from the series' genres and everything else is added as standard
+- **Specials**: Season 0 is not offered when requesting seasons of existing series unless `allow_specials = true`
 - **Multiple configurations**: You can point multiple backends at the same *arr instance with different settings (e.g., different quality profiles for 4K vs standard)
 
 ## Running as a Service
@@ -271,7 +273,6 @@ Logs include:
 - Search requests and results
 - Backend API calls and responses
 - Error details (with sanitized user-facing messages)
-- Performance metrics
 
 ## Troubleshooting
 
@@ -280,7 +281,7 @@ Logs include:
 1. **Check bot was invited correctly**: Ensure you used the OAuth2 URL with `bot` and `applications.commands` scopes
 2. **Check logs**: Look for connection errors or API issues
 3. **Verify token**: Make sure your Discord token is correct
-4. **Commands not showing**: Commands register automatically on startup; wait 1-2 minutes or restart Discord
+4. **Commands not showing**: Commands register automatically on startup and whenever the bot joins a new server; wait 1-2 minutes or restart Discord
 
 ### Backend connection errors
 
