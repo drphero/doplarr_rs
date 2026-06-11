@@ -8,25 +8,9 @@
   <a href="LICENSE-MIT"><img alt="License" src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue?style=for-the-badge"></a>
 </p>
 
-A modern Discord bot for requesting media through \*arr backends, written in Rust.
+A Discord bot for requesting media through \*arr backends, written in Rust.
 
-## Overview
-
-Doplarr is a Discord bot that allows users to request media from \*arr backends through slash commands.
-It integrates seamlessly with your *arr stack (Sonarr, Radarr, Seerr) to automate media requests from Discord.
-
-This is a **complete rewrite** of the [original Doplarr](https://github.com/kiranshila/Doplarr) (written in Clojure) in Rust, offering improved performance, reduced resource usage, and easier deployment.
-
-### Key Features
-
-- **Modern Discord UI**: Built with Discord's V2 Components for a polished, native-looking interface
-- **Slash Commands**: Modern Discord interactions - no message content access needed
-- **Flexible Backend Configuration**: Define multiple slash commands per backend type - use different instances or the same instance with different settings (e.g., `/request movie` and `/request movie_4k` with separate quality profiles/root folders)
-- **No Privileged Intents Required**: Minimal permissions for maximum privacy
-- **Lightweight**: Minimal resource footprint with fast startup times
-- **Simple Configuration**: Single TOML config file with sensible defaults
-- **Docker Support**: Pre-built containers available via GitHub Container Registry
-- **Extensible**: Clean architecture for adding additional *arr backends
+Each backend you configure creates a `/request <media>` slash command. You can have as many backends as you want — point two Radarr configs at the same instance with different quality profiles to get `/request movie` and `/request movie_4k`, for example.
 
 ## Screenshots
 
@@ -34,51 +18,27 @@ This is a **complete rewrite** of the [original Doplarr](https://github.com/kira
   <img src="screenshots/series.png" alt="Series selection interface" width="400">
 </p>
 
-## What's Different from the Original?
+## Setup
 
-If you're migrating from the Clojure version of Doplarr:
+### 1. Create a Discord bot
 
-| Feature | Original (Clojure) | This Version (Rust) |
-|---------|-------------------|---------------------|
-| **Discord UI** | V1 Components | V2 Components (richer layouts) |
-| **Backend Flexibility** | One instance per backend type | Multiple configurations per backend (e.g., `movie` + `movie_4k`) |
-| **Configuration** | EDN file or env vars | TOML with validation & helpful errors |
-| **Configuration Options** | Basic settings | More robust options (monitor type restrictions, minimum availability, anime auto-detection, specials control, etc.) |
-| **Logging** | Basic logging | Structured logging with granular levels |
-| **Runtime** | Requires Java 11+ | Native binary |
-| **Resource Usage** | JVM overhead | Native binary (lightweight) |
-| **Startup Time** | Typical JVM startup | Near-instant |
+Go to the [Discord Developer Portal](https://discord.com/developers/applications), create a new application, then go to the Bot tab and create a bot. Copy the token — you'll need it in your config.
 
-### Migration Notes
+Under **OAuth2 → URL Generator**, select scopes `bot` and `applications.commands`. If you want request confirmations to be visible to everyone (not just the requester), also add the `Send Messages` bot permission. Use the generated URL to invite the bot to your server.
 
-- **Configuration format changed**: You'll need to convert EDN/environment variables to TOML format (see [Configuration](#configuration))
-  - TOML config provides validation with clear error messages
-  - Type-safe configuration catches mistakes at startup
-- **Same Discord commands**: The user experience is identical - all slash commands work the same way
+### 2. Get your backend API keys
 
-## Installation
+- **Sonarr / Radarr**: Settings → General → Security → API Key
+- **Seerr**: Settings → API Key — must be an **admin** key
 
-### Prerequisites
+> **Seerr users must link their Discord account.** In Seerr, go to Settings → Notifications → Discord and enable the Discord notification agent. Once that's on, a Discord User ID field appears on each user's profile page. Users need to enter their Discord User ID there before they can make requests. If a user hasn't done this and you haven't set `fallback_user_id`, their requests will be rejected.
 
-1. **Discord Bot Token**
-   - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-   - Create a new application
-   - Go to the "Bot" section and create a bot
-   - Copy the bot token (you'll need this for configuration)
-   - Under "OAuth2" → "URL Generator":
-     - Select scopes: `bot`, `applications.commands`
-     - Select bot permissions: `Send Messages` (required if `public_followup` is enabled)
-   - Use the generated URL to invite the bot to your server
+### 3. Configure and run
 
-2. **At least one of: Sonarr, Radarr, or Seerr**
-   - Sonarr/Radarr: get your API key from Settings → General → Security
-   - Seerr: requires an **admin** API key (Settings → API Key); also requires the Discord notification agent to be enabled (Settings → Notifications → Discord) so that the Discord User ID field appears on user profiles
-
-### Docker (Recommended)
-
-The easiest way to run Doplarr is using Docker:
+Create a `config.toml` — see the full example below — then run the bot:
 
 ```bash
+# Docker (recommended)
 docker run -d \
   --name doplarr \
   --restart unless-stopped \
@@ -86,7 +46,7 @@ docker run -d \
   ghcr.io/kiranshila/doplarr_rs:latest
 ```
 
-Or using Docker Compose:
+Or with Docker Compose:
 
 ```yaml
 services:
@@ -98,92 +58,54 @@ services:
       - ./config.toml:/config.toml:ro
 ```
 
-### Building from Source
-
-#### Using Nix (Recommended)
-
-If you have [Nix](https://determinate.systems/nix-installer/) with flakes enabled:
-
-```bash
-# Build the binary
-nix build
-
-# Run directly
-nix run . /path/to/config.toml
-
-# Build the Docker image
-nix build .#dockerImage
-docker load < result
-```
-
-#### Using Cargo
-
-Requirements:
-- [Rust](https://rustup.rs/)
-- OpenSSL development libraries (Linux)
-- pkg-config (Linux)
-
-```bash
-# Clone the repository
-git clone https://github.com/kiranshila/doplarr_rs.git
-cd doplarr_rs
-
-# Build release binary
-cargo build --release
-
-# Run
-./target/release/doplarr /path/to/config.toml
-```
+Commands register automatically when the bot starts. If they don't show up immediately, wait a minute or restart Discord.
 
 ## Configuration
 
-Create a `config.toml` file with your settings. See [config.example.toml](config.example.toml) for a complete example.
+See [config.example.toml](config.example.toml) for a complete reference.
 
 ```toml
-# Required: Your Discord bot token
+# Required
 discord_token = "YOUR_DISCORD_BOT_TOKEN"
 
-# Optional: Logging level (default: "info")
-# Format: "target=level" or just "level"
-# Levels: error, warn, info, debug, trace
+# Optional: logging level (default: "info")
+# Can be "info", "debug", "doplarr=debug,twilight_gateway=warn", etc.
 log_level = "doplarr=info"
 
-# Optional: Make follow-up messages public (default: true)
-# Set to false to keep all bot responses ephemeral (only visible to requester)
-# Note: Requires "Send Messages" permission in Discord when enabled
+# Optional: make request confirmations visible to everyone in the channel (default: true)
+# Set to false to keep all responses ephemeral. Requires "Send Messages" permission when true.
 public_followup = true
 
 # ============================================================================
 # BACKENDS
 # ============================================================================
-# Each backend creates a slash command: /request <media>
-# You can define multiple backends of the same type with different settings.
-# The "media" field becomes the subcommand name (e.g., "movie" -> /request movie)
+# Each [[backends]] entry creates a /request <media> slash command.
+# "media" is the subcommand name — must be unique across all backends.
+#
+# Optional settings (quality_profile, rootfolder, etc.) prompt the user at
+# request time if omitted. Specify them to skip those prompts.
 
-# Standard movie requests
 [[backends]]
 media = "movie"
 
 [backends.config.Radarr]
 url = "http://localhost:7878"
 api_key = "your_radarr_api_key"
-# Optional settings - if omitted, users select at runtime
-quality_profile = "HD-1080p"
+quality_profile = "HD-1080p"          # must match exactly what's in Radarr settings
 rootfolder = "/movies"
-monitor_type = "movieOnly"           # movieOnly, movieAndCollection, none
-minimum_availability = "announced"   # tba, announced, inCinemas, released
+monitor_type = "movieOnly"            # movieOnly, movieAndCollection, none
+minimum_availability = "announced"    # tba, announced, inCinemas, released
 
-# 4K movie requests (same or different Radarr instance)
+# Same Radarr instance, different quality profile → separate /request movie_4k command
 [[backends]]
 media = "movie_4k"
 
 [backends.config.Radarr]
-url = "http://localhost:7878"        # Can be same instance...
+url = "http://localhost:7878"
 api_key = "your_radarr_api_key"
-quality_profile = "Ultra-HD"         # ...with different quality profile
-rootfolder = "/movies/4k"            # ...and different root folder
+quality_profile = "Ultra-HD"
+rootfolder = "/movies/4k"
 
-# TV series requests
 [[backends]]
 media = "series"
 
@@ -193,56 +115,39 @@ api_key = "your_sonarr_api_key"
 quality_profile = "WEB-1080p"
 rootfolder = "/tv"
 season_folders = true
-series_type = "standard"             # standard, daily, anime (auto-detected if unset)
-allow_specials = false               # offer Season 0 for existing series
-# Restrict which monitor options users can select
+series_type = "standard"              # standard, daily, anime — omit to auto-detect from genres
+allow_specials = false                # offer Season 0 when requesting seasons of existing series
+# Restrict which monitor options users can pick (omit to allow all)
 allowed_monitor_types = ["firstSeason", "lastSeason", "latestSeason", "pilot", "recent"]
 
-# Anime requests (separate Sonarr instance or same with different settings)
 [[backends]]
 media = "anime"
 
 [backends.config.Sonarr]
-url = "http://localhost:8990"        # Could be separate Sonarr for anime
+url = "http://localhost:8990"
 api_key = "your_anime_sonarr_api_key"
 series_type = "anime"
 rootfolder = "/anime"
 
-# Seerr — handles both movies and TV in a single entry.
-# Requires an admin API key and the Discord notification agent enabled in Seerr
-# (Settings → Notifications → Discord) so users can link their Discord User ID.
+# Seerr handles movies and TV in a single backend entry.
+# Requires an admin API key. Users must link their Discord User ID in Seerr
+# (Profile → Settings → Notifications → Discord) or requests will be rejected.
+# That field only appears once the Discord notification agent is enabled in
+# Seerr's global settings (Settings → Notifications → Discord).
 [[backends]]
 media = "media"
 
 [backends.config.Seerr]
 url = "http://localhost:5055"
 api_key = "your_seerr_admin_api_key"
-# fallback_user_id = 1   # attribute unlinked users' requests here; omit to reject them
-# allow_4k = true        # show a Standard/4K quality choice (only if 4K servers configured)
+# fallback_user_id = 1   # attribute unlinked users' requests to this Seerr user ID; omit to reject them
+# allow_4k = true        # show a Standard/4K quality choice (only enable if 4K servers are configured in Seerr)
 ```
-
-### Configuration Tips
-
-- **At least one backend required**: You must configure at least one `[[backends]]` entry
-- **Unique media names**: Each backend must have a unique `media` value (this becomes the slash command)
-- **Optional settings**: When optional settings (quality_profile, rootfolder, monitor_type, etc.) are not specified, users select them at runtime through the Discord interface
-- **Quality profiles**: Use the exact name as shown in Sonarr/Radarr settings
-- **Root folders**: Must be a path that exists in your *arr configuration
-- **Monitor types for Sonarr**: The `allowed_monitor_types` setting restricts user choices, preventing selections like "all" which might download too much
-- **Series type is never asked**: New series use the configured `series_type` if set; otherwise anime is auto-detected from the series' genres and everything else is added as standard
-- **Specials**: Season 0 is not offered when requesting seasons of existing series unless `allow_specials = true`
-- **Multiple configurations**: You can point multiple backends at the same *arr instance with different settings (e.g., different quality profiles for 4K vs standard)
-- **Seerr covers both movies and TV**: A single `[[backends]]` entry handles combined search; the `media` field is just the slash command label (e.g., `media = "media"`)
-- **Seerr user linking**: Users must set their Discord User ID in Seerr (Profile → Settings → Notifications → Discord) for requests to be attributed to them. The Discord notification agent must be enabled in Seerr settings for this field to appear. Use `fallback_user_id` to allow unlinked users
-- **Seerr 4K**: Set `allow_4k = true` only if your Seerr instance has 4K servers configured; defaults to false
 
 ## Running as a Service
 
-### systemd (Linux)
-
-Create `/etc/systemd/system/doplarr.service`:
-
 ```ini
+# /etc/systemd/system/doplarr.service
 [Unit]
 Description=Doplarr Discord Bot
 After=network.target
@@ -251,7 +156,6 @@ After=network.target
 Type=simple
 User=doplarr
 Group=doplarr
-WorkingDirectory=/opt/doplarr
 ExecStart=/opt/doplarr/doplarr /opt/doplarr/config.toml
 Restart=on-failure
 RestartSec=5
@@ -260,76 +164,58 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Enable and start:
-
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now doplarr
 ```
 
-### Docker Compose with Auto-restart
+## Building from Source
 
-The `restart: unless-stopped` policy ensures the bot automatically restarts on failure or system reboot.
+**With Nix:**
 
-## Logging
-
-Logging is configured via the `log_level` setting in your config file. You can set different levels for different components:
-
-```toml
-# Just set overall level
-log_level = "info"
-
-# Or be more specific
-log_level = "doplarr=debug,twilight_gateway=warn"
+```bash
+nix build
+nix run . /path/to/config.toml
 ```
 
-Logs include:
-- Connection status to Discord
-- Search requests and results
-- Backend API calls and responses
-- Error details (with sanitized user-facing messages)
+**With Cargo** (requires Rust, OpenSSL dev libraries, and pkg-config on Linux):
+
+```bash
+cargo build --release
+./target/release/doplarr /path/to/config.toml
+```
 
 ## Troubleshooting
 
-### Bot not responding to commands
+**Bot doesn't respond to commands**
+- Make sure you invited the bot with both `bot` and `applications.commands` scopes
+- Commands register on startup — wait a minute or restart Discord if they're missing
+- Check logs for connection errors
 
-1. **Check bot was invited correctly**: Ensure you used the OAuth2 URL with `bot` and `applications.commands` scopes
-2. **Check logs**: Look for connection errors or API issues
-3. **Verify token**: Make sure your Discord token is correct
-4. **Commands not showing**: Commands register automatically on startup and whenever the bot joins a new server; wait 1-2 minutes or restart Discord
+**Backend connection errors**
+- Test your API keys directly in the \*arr web UI
+- If running in Docker, make sure the container can reach your \*arr services (check network/hostname)
+- Quality profile names are case-sensitive and must match exactly what's in Sonarr/Radarr settings
 
-### Backend connection errors
+**Seerr: "user not found" or requests rejected**
+1. Enable the Discord notification agent in Seerr (Settings → Notifications → Discord)
+2. Each user goes to their Seerr profile → Settings → Notifications → Discord and enters their Discord User ID
+3. Or set `fallback_user_id` in your config to accept requests from unlinked users
 
-1. **Check URLs**: Ensure Sonarr/Radarr URLs are accessible from where Doplarr is running
-2. **Verify API keys**: Test your API keys using the *arr web interface
-3. **Network issues**: If using Docker, ensure containers can reach your *arr services
-4. **SSL certificates**: Docker image includes CA certificates; if issues persist, check your SSL setup
-
-### Configuration errors
-
-1. **TOML syntax**: Use a TOML validator if you get parse errors
-2. **Quality profiles**: Must match exactly (case-sensitive) what's in your *arr settings
-3. **Root folders**: Must be paths that exist in *arr configuration
-4. **Required fields**: `discord_token` and at least one `[[backends]]` entry are required
-5. **Duplicate media names**: Each backend must have a unique `media` value
+**Config parse errors**
+- Validate your TOML syntax (e.g. [jsonformatter.org/toml-validator](https://jsonformatter.org/toml-validator))
+- `discord_token` and at least one `[[backends]]` entry are required
+- Each backend's `media` value must be unique
 
 ## Development
 
-See [README_DEVELOPER.md](README_DEVELOPER.md) for information on:
-- Adding new backend providers
-- Generating API bindings from OpenAPI specs
-- Contributing to the project
+See [README_DEVELOPER.md](README_DEVELOPER.md) for adding new backends, generating API bindings, and contributing.
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
+Licensed under either of Apache License 2.0 ([LICENSE-APACHE](LICENSE-APACHE)) or MIT License ([LICENSE-MIT](LICENSE-MIT)) at your option.
 
 ## Acknowledgments
 
 - [Twilight](https://github.com/twilight-rs/twilight) for Discord API bindings
-- [OpenAPI Generator](https://github.com/OpenAPITools/openapi-generator) for *arr API clients
+- [OpenAPI Generator](https://github.com/OpenAPITools/openapi-generator) for \*arr API clients
