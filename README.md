@@ -207,6 +207,10 @@ cargo build --release
 - `discord_token` and at least one `[[backends]]` entry are required
 - Each backend's `media` value must be unique
 
+## Migrating from the Clojure version
+
+See [MIGRATING.md](MIGRATING.md) for a full config mapping from the old EDN format to TOML, renamed options, and what's been removed.
+
 ## Development
 
 See [README_DEVELOPER.md](README_DEVELOPER.md) for adding new backends, generating API bindings, and contributing.
