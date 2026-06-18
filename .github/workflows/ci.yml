@@ -29,32 +29,67 @@ jobs:
               run: nix flake check --print-build-logs
 
     build-and-push:
-        name: Build and Push Docker Image
+        name: Build and Push Docker Image (${{ matrix.arch }})
         needs: check
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.runner }}
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - arch: amd64
+                      runner: ubuntu-latest
+                    - arch: arm64
+                      runner: ubuntu-24.04-arm
+    
         steps:
             - name: Checkout repository
               uses: actions/checkout@v6
-
+    
             - name: Install Nix
               uses: DeterminateSystems/nix-installer-action@main
-
+    
             - name: Setup Nix cache
               uses: DeterminateSystems/magic-nix-cache-action@main
-
+    
             - name: Build Docker image
               run: |
                   nix build .#dockerImage
                   docker load < result
-
+    
             - name: Log in to GitHub Container Registry
               uses: docker/login-action@v3
               with:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Push Docker image
+    
+            - name: Push arch-specific Docker image
               run: |
-                  docker push ghcr.io/kiranshila/doplarr_rs:latest
+                  IMAGE=ghcr.io/${{ github.repository_owner }}/doplarr_rs
+                  docker tag doplarr_rs:latest "$IMAGE:${{ matrix.arch }}"
+                  docker push "$IMAGE:${{ matrix.arch }}"
+    
+    publish-manifest:
+        name: Publish Multi-Arch Docker Manifest
+        needs: build-and-push
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+        steps:
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+    
+            - name: Create and push multi-arch latest tag
+              run: |
+                  IMAGE=ghcr.io/${{ github.repository_owner }}/doplarr_rs
+                  docker buildx imagetools create \
+                    -t "$IMAGE:latest" \
+                    "$IMAGE:amd64" \
+                    "$IMAGE:arm64"
+    
+                  docker buildx imagetools inspect "$IMAGE:latest"
