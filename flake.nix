@@ -97,7 +97,7 @@
 
           # Docker image
           dockerImage = pkgs.dockerTools.buildLayeredImage {
-            name = "ghcr.io/kiranshila/doplarr_rs";
+            name = "doplarr_rs";
             tag = "latest";
 
             contents = [doplarr pkgs.cacert];
